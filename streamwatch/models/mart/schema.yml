@@ -1,0 +1,50 @@
+version: 2
+
+models:
+  - name: dim_users
+    description: "Deduplicated dimension table containing user profile information."
+    columns:
+      - name: user_key
+        tests:
+          - unique
+          - not_null
+      - name: user_id
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_content
+    description: "Deduplicated dimension table containing content metadata."
+    columns:
+      - name: content_key
+        tests:
+          - unique
+          - not_null
+      - name: content_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_watch_events
+    description: "Fact table at the grain of one row per watch event."
+    columns:
+      - name: watch_event_key
+        tests:
+          - unique
+          - not_null
+      - name: event_id
+        tests:
+          - unique
+          - not_null
+      - name: user_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_users')
+              field: user_key
+      - name: content_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_content')
+              field: content_key
