@@ -1,0 +1,129 @@
+SHOW TABLES IN DATABASE STREAMWATCH_DB;
+
+DESC TABLE STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS;
+
+DESC TABLE STREAMWATCH_DB.RAW.DIM_USERS;
+DESC TABLE STREAMWATCH_DB.RAW.DIM_CONTENT;
+
+SELECT 
+    COUNT(*) AS total_watch_events,
+    COUNT(DISTINCT EVENT_ID) AS unique_events,
+    COUNT(DISTINCT USER_ID) AS unique_users,
+    COUNT(DISTINCT CONTENT_ID) AS unique_content,
+    MIN(WATCH_DATE) AS firt_watch_date,
+    MAX(WATCH_DATE) AS last_watch_date
+FROM
+    STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS;
+
+    SELECT
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT WATCH_EVENT_KEY) AS unique_event_keys,
+    COUNT(DISTINCT EVENT_ID) AS unique_event_ids,
+
+    COUNT(*) - COUNT(DISTINCT WATCH_EVENT_KEY)
+        AS duplicate_surrogate_keys,
+
+    COUNT(*) - COUNT(DISTINCT EVENT_ID)
+        AS duplicate_event_ids
+
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS;
+
+SELECT
+    'DIM_USERS' AS table_name,
+    COUNT(*) AS total_rows,
+    COUNT(DISTINCT USER_KEY) AS unique_surrogate_keys,
+    COUNT(DISTINCT USER_ID) AS unique_business_ids
+FROM STREAMWATCH_DB.RAW.DIM_USERS
+
+UNION ALL
+
+SELECT
+    'DIM_CONTENT',
+    COUNT(*),
+    COUNT(DISTINCT CONTENT_KEY),
+    COUNT(DISTINCT CONTENT_ID)
+FROM STREAMWATCH_DB.RAW.DIM_CONTENT;
+
+SELECT
+    COUNT(*) AS total_events,
+
+    COUNT_IF(u.USER_KEY IS NULL)
+        AS missing_user_references,
+
+    COUNT_IF(c.CONTENT_KEY IS NULL)
+        AS missing_content_references,
+
+    COUNT_IF(
+        u.USER_ID IS NOT NULL
+        AND u.USER_ID <> f.USER_ID
+    ) AS user_key_mismatches,
+
+    COUNT_IF(
+        c.CONTENT_ID IS NOT NULL
+        AND c.CONTENT_ID <> f.CONTENT_ID
+    ) AS content_key_mismatches
+
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS f
+
+LEFT JOIN STREAMWATCH_DB.RAW.DIM_USERS u
+    ON f.USER_KEY = u.USER_KEY
+
+LEFT JOIN STREAMWATCH_DB.RAW.DIM_CONTENT c
+    ON f.CONTENT_KEY = c.CONTENT_KEY;
+
+    SELECT
+    MIN(MINUTES_WATCHED) AS min_minutes,
+    MAX(MINUTES_WATCHED) AS max_minutes,
+    AVG(MINUTES_WATCHED) AS avg_minutes,
+
+    MIN(COMPLETION_PCT) AS min_completion,
+    MAX(COMPLETION_PCT) AS max_completion,
+    AVG(COMPLETION_PCT) AS avg_completion,
+
+    MIN(RATING_GIVEN) AS min_rating,
+    MAX(RATING_GIVEN) AS max_rating,
+
+    COUNT_IF(COMPLETED_FLAG NOT IN (0, 1))
+        AS invalid_completion_flags,
+
+    COUNT_IF(COMPLETION_PCT < 0 OR COMPLETION_PCT > 100)
+        AS invalid_completion_percentages,
+
+    COUNT_IF(MINUTES_WATCHED < 0)
+        AS negative_watch_minutes,
+
+    COUNT_IF(RATING_GIVEN < 1 OR RATING_GIVEN > 5)
+        AS potentially_invalid_ratings
+
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS;
+
+SELECT
+    'DEVICE_TYPE' AS category,
+    DEVICE_TYPE AS category_value,
+    COUNT(*) AS event_count
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS
+GROUP BY DEVICE_TYPE
+
+UNION ALL
+
+SELECT
+    'SUBSCRIPTION_TIER',
+    u.USER_SUBSCRIPTION_TIER,
+    COUNT(*)
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS f
+JOIN STREAMWATCH_DB.RAW.DIM_USERS u
+    ON f.USER_KEY = u.USER_KEY
+GROUP BY u.USER_SUBSCRIPTION_TIER
+
+UNION ALL
+
+SELECT
+    'GENRE',
+    c.CONTENT_GENRE,
+    COUNT(*)
+FROM STREAMWATCH_DB.RAW.FCT_WATCH_EVENTS f
+JOIN STREAMWATCH_DB.RAW.DIM_CONTENT c
+    ON f.CONTENT_KEY = c.CONTENT_KEY
+GROUP BY c.CONTENT_GENRE
+
+ORDER BY category, event_count DESC;
